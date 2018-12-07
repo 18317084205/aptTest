@@ -1,0 +1,1 @@
+include ':app', ':anno', ':lib', ':jinject', ':injector_annotations', ':injector_complier'
