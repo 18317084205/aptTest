@@ -52,21 +52,21 @@ public class JInjector {
     private static Constructor<? extends UnBinder> findBindingConstructorForClass(Class<?> targetClass) {
 
         Constructor<? extends UnBinder> bindingCtor = BINDINGS.get(targetClass);
-        if (bindingCtor != null) {
+        if (bindingCtor != null || BINDINGS.containsKey(targetClass)) {
             Log.d(TAG, "HIT: Cached in binding map.");
             return bindingCtor;
         }
         String clsName = targetClass.getName();
         if (clsName.startsWith("android.") || clsName.startsWith("java.")) {
-            Log.d(TAG, "MISS: Reached framework class. Abandoning search.");
+            Log.e(TAG, "MISS: Reached framework class. Abandoning search.");
             return null;
         }
         try {
-            Class<?> bindingClass = Class.forName(clsName + INJECTOR);
+            Class<?> bindingClass = targetClass.getClassLoader().loadClass(clsName + INJECTOR);
             bindingCtor = (Constructor<? extends UnBinder>) bindingClass.getConstructor(targetClass, View.class);
             Log.d(TAG, "HIT: Loaded binding class and constructor.");
         } catch (ClassNotFoundException e) {
-            Log.d(TAG, "Not found. Trying superclass " + targetClass.getSuperclass().getName());
+            Log.e(TAG, "Not found. Trying superclass " + targetClass.getSuperclass().getName());
             bindingCtor = findBindingConstructorForClass(targetClass.getSuperclass());
         } catch (NoSuchMethodException e) {
             throw new RuntimeException("Unable to find binding constructor for " + clsName, e);

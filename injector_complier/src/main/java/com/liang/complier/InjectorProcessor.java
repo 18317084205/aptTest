@@ -1,7 +1,9 @@
 package com.liang.complier;
 
+import com.google.auto.service.AutoService;
 import com.liang.annotations.BindView;
 
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -12,27 +14,29 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 
+@AutoService(Processor.class)
 public class InjectorProcessor extends AbstractProcessor {
-
-
-    private Filer mFiler; //文件相关的辅助类
-    private Elements mElementUtils; //元素相关的辅助类  许多元素
-    private Messager mMessager; //日志相关的辅助类
-    private Map<String, AnnotatedClass> mAnnotatedClassMap;
+    private Filer filer; //文件相关的辅助类
+    private Elements elements; //元素相关的辅助类  许多元素
+    private Messager messager; //日志相关的辅助类
+    private Map<String, AnnotatedClass> annotatedClassMap;
 
     @Override
     public synchronized void init(ProcessingEnvironment processingEnvironment) {
         super.init(processingEnvironment);
-        mFiler = processingEnv.getFiler();
-        mElementUtils = processingEnv.getElementUtils();
-        mMessager = processingEnv.getMessager();
-        mAnnotatedClassMap = new TreeMap<>();
+        filer = processingEnv.getFiler();
+        elements = processingEnv.getElementUtils();
+        messager = processingEnv.getMessager();
+        annotatedClassMap = new TreeMap<>();
     }
 
     @Override
@@ -51,16 +55,46 @@ public class InjectorProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
-        mMessager.printMessage(Diagnostic.Kind.NOTE, "process...");
-        mAnnotatedClassMap.clear();
-        return false;
+        log("InjectorProcessor: %s", "process...");
+        annotatedClassMap.clear();
+        process(roundEnvironment, BindView.class);
+        for (AnnotatedClass annotatedClass : annotatedClassMap.values()) {
+            try {
+                annotatedClass.generateActivityFile().writeTo(filer);
+            } catch (IOException e) {
+                error("Generate file failed, reason: %s", e.getMessage());
+            }
+        }
+        return true;
     }
 
+    private void process(RoundEnvironment roundEnvironment, Class<? extends Annotation> clazz) {
+        for (Element element : roundEnvironment.getElementsAnnotatedWith(clazz)) {
+            if (element.getKind() == ElementKind.FIELD) {
+                getAnnotatedClass(element);
+            } else
+                error("ActivityInject only can use  in ElementKind.CLASS");
+        }
+    }
+
+
+    private AnnotatedClass getAnnotatedClass(Element element) {
+        TypeElement typeElement = (TypeElement) element.getEnclosingElement();
+        String fullName = typeElement.getQualifiedName().toString();
+        AnnotatedClass annotatedClass = annotatedClassMap.get(fullName);
+        if (annotatedClass == null) {
+            annotatedClass = new AnnotatedClass(typeElement, elements);
+            annotatedClassMap.put(fullName, annotatedClass);
+        }
+        return annotatedClass;
+    }
+
+
     private void error(String msg, Object... args) {
-        mMessager.printMessage(Diagnostic.Kind.ERROR, String.format(msg, args));
+        messager.printMessage(Diagnostic.Kind.ERROR, String.format(msg, args));
     }
 
     private void log(String msg, Object... args) {
-        mMessager.printMessage(Diagnostic.Kind.NOTE, String.format(msg, args));
+        messager.printMessage(Diagnostic.Kind.NOTE, String.format(msg, args));
     }
 }

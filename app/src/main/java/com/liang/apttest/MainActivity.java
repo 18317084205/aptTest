@@ -5,12 +5,12 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.ImageView;
 
-import com.liang.anno.MyClass;
+import com.liang.annotations.BindView;
+import com.liang.inject.JInjector;
 
-import butterknife.BindView;
 import butterknife.ButterKnife;
 
-@MyClass
+
 public class MainActivity extends AppCompatActivity {
 
     @BindView(R.id.button)
@@ -23,7 +23,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        InjectActivity.inject(this);//调用build生成的类
-        ButterKnife.bind(this);
+//        InjectActivity.inject(this);//调用build生成的类
+        JInjector.bind(this);
     }
 }
