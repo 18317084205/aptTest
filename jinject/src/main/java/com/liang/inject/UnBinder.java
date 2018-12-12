@@ -5,12 +5,12 @@ import android.support.annotation.UiThread;
 public interface UnBinder {
 
     @UiThread
-    void unbind(Object object);
+    void unbind();
 
     UnBinder EMPTY = new UnBinder() {
 
         @Override
-        public void unbind(Object object) {
+        public void unbind() {
         }
     };
 }

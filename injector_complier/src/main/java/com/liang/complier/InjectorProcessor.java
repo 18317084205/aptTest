@@ -2,6 +2,12 @@ package com.liang.complier;
 
 import com.google.auto.service.AutoService;
 import com.liang.annotations.BindView;
+import com.liang.annotations.ListenerClass;
+import com.liang.annotations.OnCheckedChange;
+import com.liang.annotations.OnClick;
+import com.liang.annotations.OnEditorAction;
+import com.liang.annotations.OnLongClick;
+import com.liang.annotations.OnTextChanged;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
@@ -57,7 +63,11 @@ public class InjectorProcessor extends AbstractProcessor {
     public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
         log("InjectorProcessor: %s", "process...");
         annotatedClassMap.clear();
-        process(roundEnvironment, BindView.class);
+
+        for (Class<? extends Annotation> annotation : Containers.getSupportedAnnotations()) {
+            process(roundEnvironment, annotation);
+        }
+
         for (AnnotatedClass annotatedClass : annotatedClassMap.values()) {
             try {
                 annotatedClass.generateActivityFile().writeTo(filer);
@@ -70,13 +80,35 @@ public class InjectorProcessor extends AbstractProcessor {
 
     private void process(RoundEnvironment roundEnvironment, Class<? extends Annotation> clazz) {
         for (Element element : roundEnvironment.getElementsAnnotatedWith(clazz)) {
-            if (element.getKind() == ElementKind.FIELD) {
-                getAnnotatedClass(element);
-            } else
-                error("ActivityInject only can use  in ElementKind.CLASS");
+            AnnotatedClass annotatedClass = getAnnotatedClass(element);
+            ListenerClass listener = clazz.getAnnotation(ListenerClass.class);
+            Annotation annotation = element.getAnnotation(clazz);
+            int[] ids = {-1};
+            if (annotation instanceof BindView) {
+                ids = ((BindView) annotation).value();
+            }
+            if (annotation instanceof OnClick) {
+                ids = ((OnClick) annotation).value();
+            }
+            if (annotation instanceof OnLongClick) {
+                ids = ((OnLongClick) annotation).value();
+            }
+            if (annotation instanceof OnCheckedChange) {
+                ids = ((OnCheckedChange) annotation).value();
+            }
+            if (annotation instanceof OnEditorAction) {
+                ids = ((OnEditorAction) annotation).value();
+            }
+            if (annotation instanceof OnTextChanged) {
+                ids = ((OnTextChanged) annotation).value();
+            }
+
+            if (listener != null) {
+                MethodViewBinding viewBinding = new MethodViewBinding(element.getSimpleName().toString(), ids);
+                annotatedClass.addElement(listener, viewBinding);
+            }
         }
     }
-
 
     private AnnotatedClass getAnnotatedClass(Element element) {
         TypeElement typeElement = (TypeElement) element.getEnclosingElement();
@@ -86,6 +118,7 @@ public class InjectorProcessor extends AbstractProcessor {
             annotatedClass = new AnnotatedClass(typeElement, elements);
             annotatedClassMap.put(fullName, annotatedClass);
         }
+        annotatedClass.addElement(element);
         return annotatedClass;
     }
 
